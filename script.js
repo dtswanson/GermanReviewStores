@@ -4,12 +4,15 @@ let currentCardIndex = 0;
 let score = 0;
 let streak = 0;
 let currentQuizQuestion = null;
+let isEnglishFront = false;
 
 // DOM Elements
 const btnStudy = document.getElementById('btnStudy');
 const btnQuiz = document.getElementById('btnQuiz');
 const studySection = document.getElementById('studySection');
 const quizSection = document.getElementById('quizSection');
+const langToggle = document.getElementById('langToggle');
+const frontLangLabel = document.getElementById('frontLangLabel');
 
 // Study Elements
 const flashcard = document.getElementById('flashcard');
@@ -31,14 +34,45 @@ const btnNextQuestion = document.getElementById('btnNextQuestion');
 
 // Initialization
 document.addEventListener('DOMContentLoaded', () => {
+    loadState();
     initStudyMode();
     setupEventListeners();
 });
+
+function loadState() {
+    const savedScore = localStorage.getItem('germanAppScore');
+    const savedStreak = localStorage.getItem('germanAppStreak');
+    const savedLangPref = localStorage.getItem('germanAppEnglishFront');
+
+    if (savedScore) score = parseInt(savedScore);
+    if (savedStreak) streak = parseInt(savedStreak);
+    if (savedLangPref === 'true') {
+        isEnglishFront = true;
+        langToggle.checked = true;
+        frontLangLabel.textContent = 'English';
+    }
+
+    updateScoreBoard();
+}
+
+function saveState() {
+    localStorage.setItem('germanAppScore', score);
+    localStorage.setItem('germanAppStreak', streak);
+    localStorage.setItem('germanAppEnglishFront', isEnglishFront);
+}
 
 function setupEventListeners() {
     // Mode Switching
     btnStudy.addEventListener('click', () => switchMode('study'));
     btnQuiz.addEventListener('click', () => switchMode('quiz'));
+
+    // Language Toggle
+    langToggle.addEventListener('change', (e) => {
+        isEnglishFront = e.target.checked;
+        frontLangLabel.textContent = isEnglishFront ? 'English' : 'German';
+        saveState();
+        renderCard();
+    });
 
     // Study Controls
     flashcard.addEventListener('click', () => flashcard.classList.toggle('flipped'));
@@ -86,13 +120,28 @@ function initStudyMode() {
 function renderCard() {
     const item = vocabulary[currentCardIndex];
     cardCategory.textContent = item.category;
-    cardGerman.textContent = item.german;
-    cardPlural.textContent = item.plural ? `Plural: ${item.plural}` : '';
-    cardEnglish.textContent = item.english;
-    cardCounter.textContent = `${currentCardIndex + 1} / ${vocabulary.length}`;
 
     // Reset flip state
     flashcard.classList.remove('flipped');
+
+    // Update content based on toggle
+    if (isEnglishFront) {
+        // Front: English
+        cardGerman.textContent = item.english; // Reusing ID for layout, content changes
+        cardPlural.textContent = ''; // No plural for English usually shown here
+
+        // Back: German
+        cardEnglish.textContent = `${item.german} ${item.plural ? `(${item.plural})` : ''}`;
+    } else {
+        // Front: German (Default)
+        cardGerman.textContent = item.german;
+        cardPlural.textContent = item.plural ? `Plural: ${item.plural}` : '';
+
+        // Back: English
+        cardEnglish.textContent = item.english;
+    }
+
+    cardCounter.textContent = `${currentCardIndex + 1} / ${vocabulary.length}`;
 }
 
 function nextCard() {
@@ -116,8 +165,7 @@ function prevCard() {
 // --- Quiz Mode Logic ---
 
 function initQuizMode() {
-    score = 0;
-    streak = 0;
+    // Keep score/streak from state
     updateScoreBoard();
     generateQuizQuestion();
 }
@@ -190,6 +238,7 @@ function handleAnswer(selectedOption, btnElement) {
         });
     }
 
+    saveState(); // Save new score/streak
     feedback.classList.remove('hidden');
     btnNextQuestion.classList.remove('hidden');
     updateScoreBoard();
